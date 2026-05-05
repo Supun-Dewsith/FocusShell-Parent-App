@@ -1,0 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #f8f6f2;
+  --surface: #ffffff;
+  --surface-muted: #f3f1ea;
+  --text: #1f2428;
+  --text-muted: #6b6f73;
+  --border: #e4e0d7;
+  --accent: #1f7a6f;
+  --accent-soft: rgba(31, 122, 111, 0.12);
+  --shadow: 0 24px 60px rgba(15, 19, 26, 0.12);
+  --shadow-soft: 0 12px 30px rgba(15, 19, 26, 0.12);
+  --radius-lg: 20px;
+
+  --sans: 'Space Grotesk', 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', 'Segoe UI', monospace;
+
+  font: 16px/1.6 var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: radial-gradient(circle at top left, rgba(31, 122, 111, 0.08), transparent 45%),
+    radial-gradient(circle at 85% 10%, rgba(242, 193, 78, 0.12), transparent 40%),
+    var(--bg);
+}
+
+#root {
+  min-height: 100svh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--sans);
+  color: var(--text);
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+h2 {
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
