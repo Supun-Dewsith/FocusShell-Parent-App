@@ -47,13 +47,15 @@ function App() {
       {isDetail ? (
         <section>
           <div className="detail-header">
-            <button className="button button--ghost" onClick={() => setSelectedDevice(null)}>
-              Back to devices
-            </button>
             <div className="detail-header__copy">
               <span className="eyebrow">Selected device</span>
               <h2>{selectedDevice?.name ?? 'Selected device'}</h2>
               <p className="muted">Child device controls and status</p>
+            </div>
+            <div>
+              <button className="button button--ghost" onClick={() => setSelectedDevice(null)}>
+              Back to devices
+            </button>
             </div>
           </div>
 
