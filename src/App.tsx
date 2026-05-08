@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 
 type Device = {
@@ -13,34 +13,204 @@ type Device = {
   stateText: string
 }
 
+type AllowedApp = {
+  id: string
+  name: string
+}
+
+type TimelineItem = {
+  id: string
+  title: string
+  detail: string
+  status: 'Queued' | 'Delivered' | 'Confirmed' | 'Failed'
+}
+
+const API_BASE = 'https://localhost:7168/api'
+
 function App() {
+  const [devices, setDevices] = useState<Device[]>([])
+  const [devicesLoading, setDevicesLoading] = useState(true)
+  const [devicesError, setDevicesError] = useState<string | null>(null)
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
+  const [deviceDetailError, setDeviceDetailError] = useState<string | null>(null)
+  const [allowedApps, setAllowedApps] = useState<AllowedApp[]>([])
+  const [allowedAppsLoading, setAllowedAppsLoading] = useState(false)
+  const [allowedAppsError, setAllowedAppsError] = useState<string | null>(null)
+  const [isEditingApps, setIsEditingApps] = useState(false)
+  const [draftAllowedApps, setDraftAllowedApps] = useState<AllowedApp[]>([])
+  const [allowedAppInput, setAllowedAppInput] = useState('')
+  const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([])
+  const [timelineLoading, setTimelineLoading] = useState(false)
+  const [timelineError, setTimelineError] = useState<string | null>(null)
+  const [commandBusy, setCommandBusy] = useState(false)
+  const [commandStatus, setCommandStatus] = useState<string | null>(null)
   const isDetail = Boolean(selectedDevice)
 
-  const devices: Device[] = [
-    {
-      id: 'amina-pixel',
-      name: "Amina's Pixel 7",
-      model: 'Android 14',
-      status: 'Locked',
-      battery: '62%',
-      lockAt: '9:00 PM',
-      unlockAt: '7:00 AM',
-      queue: '2 pending',
-      stateText: 'Locked until 7:00 AM',
-    },
-    {
-      id: 'jordan-galaxy',
-      name: "Jordan's Galaxy A54",
-      model: 'Android 13',
-      status: 'Unlocked',
-      battery: '84%',
-      lockAt: '8:30 PM',
-      unlockAt: '6:30 AM',
-      queue: '0 pending',
-      stateText: 'Unlocked until 8:30 PM',
-    },
-  ]
+  const fetchJson = async <T,>(url: string, options?: RequestInit): Promise<T> => {
+    const response = await fetch(url, options)
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`)
+    }
+    return response.json() as Promise<T>
+  }
+
+  const loadDevices = async () => {
+    try {
+      setDevicesLoading(true)
+      setDevicesError(null)
+      const data = await fetchJson<Device[]>(`${API_BASE}/devices`)
+      setDevices(data)
+    } catch {
+      setDevicesError('Unable to reach the backend. Start the API and retry.')
+      setDevices([])
+    } finally {
+      setDevicesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadDevices()
+  }, [])
+
+  useEffect(() => {
+    const deviceId = selectedDevice?.id
+    if (!deviceId) {
+      return
+    }
+
+    const loadDeviceDetail = async () => {
+      try {
+        setDeviceDetailError(null)
+        const detail = await fetchJson<Device>(`${API_BASE}/devices/${deviceId}`)
+        setSelectedDevice(detail)
+      } catch {
+        setDeviceDetailError('Unable to load device details. Check the backend.')
+      }
+    }
+
+    const loadAllowedApps = async () => {
+      try {
+        setAllowedAppsLoading(true)
+        setAllowedAppsError(null)
+        const apps = await fetchJson<AllowedApp[]>(`${API_BASE}/devices/${deviceId}/allowed-apps`)
+        setAllowedApps(apps)
+      } catch {
+        setAllowedAppsError('Unable to load allowed apps. Check the backend.')
+        setAllowedApps([])
+      } finally {
+        setAllowedAppsLoading(false)
+      }
+    }
+
+    const loadTimeline = async () => {
+      try {
+        setTimelineLoading(true)
+        setTimelineError(null)
+        const items = await fetchJson<TimelineItem[]>(`${API_BASE}/devices/${deviceId}/timeline`)
+        setTimelineItems(items)
+      } catch {
+        setTimelineError('Unable to load timeline events. Check the backend.')
+        setTimelineItems([])
+      } finally {
+        setTimelineLoading(false)
+      }
+    }
+
+    void loadDeviceDetail()
+    void loadAllowedApps()
+    void loadTimeline()
+  }, [selectedDevice?.id])
+
+  const handleSelectDevice = (device: Device) => {
+    setSelectedDevice(device)
+    setCommandStatus(null)
+    setIsEditingApps(false)
+  }
+
+  const retryDeviceDetail = () => {
+    const deviceId = selectedDevice?.id
+    if (!deviceId) {
+      return
+    }
+    setDeviceDetailError(null)
+    void fetchJson<Device>(`${API_BASE}/devices/${deviceId}`).then(setSelectedDevice).catch(() => {
+      setDeviceDetailError('Unable to load device details. Check the backend.')
+    })
+  }
+
+  const handleCommand = async (command: 'lock' | 'unlock' | 'grace') => {
+    const deviceId = selectedDevice?.id
+    if (!deviceId) {
+      return
+    }
+
+    try {
+      setCommandBusy(true)
+      setCommandStatus(null)
+      await fetchJson(`${API_BASE}/devices/${deviceId}/commands/${command}`, {
+        method: 'POST',
+      })
+      setCommandStatus('Command sent to cloud relay.')
+    } catch {
+      setCommandStatus('Command failed to send. Backend not ready yet.')
+    } finally {
+      setCommandBusy(false)
+    }
+  }
+
+  const startEditAllowedApps = () => {
+    setDraftAllowedApps(allowedApps)
+    setIsEditingApps(true)
+  }
+
+  const cancelEditAllowedApps = () => {
+    setDraftAllowedApps([])
+    setAllowedAppInput('')
+    setIsEditingApps(false)
+  }
+
+  const saveAllowedApps = async () => {
+    const deviceId = selectedDevice?.id
+    if (!deviceId) {
+      return
+    }
+
+    try {
+      setAllowedAppsLoading(true)
+      setAllowedAppsError(null)
+      const payload = { apps: draftAllowedApps }
+      const updated = await fetchJson<AllowedApp[]>(`${API_BASE}/devices/${deviceId}/allowed-apps`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      setAllowedApps(updated)
+      setIsEditingApps(false)
+      setAllowedAppInput('')
+    } catch {
+      setAllowedAppsError('Unable to save allowed apps. Backend not ready yet.')
+    } finally {
+      setAllowedAppsLoading(false)
+    }
+  }
+
+  const addAllowedApp = () => {
+    const trimmed = allowedAppInput.trim()
+    if (!trimmed) {
+      return
+    }
+
+    const nextApp: AllowedApp = {
+      id: `${trimmed.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+      name: trimmed,
+    }
+    setDraftAllowedApps((prev) => [...prev, nextApp])
+    setAllowedAppInput('')
+  }
+
+  const removeAllowedApp = (id: string) => {
+    setDraftAllowedApps((prev) => prev.filter((app) => app.id !== id))
+  }
 
   return (
     <div className="app">
@@ -76,12 +246,37 @@ function App() {
                 </div>
               </div>
 
+              {deviceDetailError ? (
+                <div className="inline-alert">
+                  <p className="muted">{deviceDetailError}</p>
+                  <button className="button button--ghost" onClick={retryDeviceDetail}>
+                    Retry
+                  </button>
+                </div>
+              ) : null}
+
               <div className="panel__body">
                 <div className="control-row">
-                  <button className="button button--primary">Lock now</button>
-                  <button className="button button--ghost">Unlock now</button>
-                  <button className="button">Send 15 min grace</button>
+                  <button
+                    className="button button--primary"
+                    onClick={() => handleCommand('lock')}
+                    disabled={commandBusy}
+                  >
+                    Lock now
+                  </button>
+                  <button
+                    className="button button--ghost"
+                    onClick={() => handleCommand('unlock')}
+                    disabled={commandBusy}
+                  >
+                    Unlock now
+                  </button>
+                  <button className="button" onClick={() => handleCommand('grace')} disabled={commandBusy}>
+                    Send 15 min grace
+                  </button>
                 </div>
+
+                {commandStatus ? <p className="muted">{commandStatus}</p> : null}
 
                 <div className="form-grid">
                   <label className="field">
@@ -118,25 +313,58 @@ function App() {
                   <h2>Allowed apps</h2>
                   <p className="muted">Only these apps stay available during lock.</p>
                 </div>
-                <button className="button button--ghost">Edit list</button>
+                {isEditingApps ? (
+                  <div className="button-row">
+                    <button className="button button--ghost" onClick={saveAllowedApps} disabled={allowedAppsLoading}>
+                      Save
+                    </button>
+                    <button className="button button--ghost" onClick={cancelEditAllowedApps}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button className="button button--ghost" onClick={startEditAllowedApps}>
+                    Edit
+                  </button>
+                )}
               </div>
               <div className="panel__body">
+                {allowedAppsError ? <p className="muted">{allowedAppsError}</p> : null}
+                {allowedAppsLoading ? <p className="muted">Loading allowed apps...</p> : null}
                 <div className="chip-grid">
-                  <span className="chip">Phone</span>
-                  <span className="chip">Messages</span>
-                  <span className="chip">Camera</span>
-                  <span className="chip">Maps</span>
-                  <span className="chip">Calculator</span>
-                  <span className="chip">Khan Academy</span>
-                  <span className="chip">Spotify Kids</span>
+                  {(isEditingApps ? draftAllowedApps : allowedApps).map((app) => (
+                    <span key={app.id} className={`chip ${isEditingApps ? 'chip--editable' : ''}`}>
+                      {app.name}
+                      {isEditingApps ? (
+                        <button
+                          className="chip__remove"
+                          type="button"
+                          onClick={() => removeAllowedApp(app.id)}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                    </span>
+                  ))}
                 </div>
                 <label className="field">
                   <span className="field__label">Add allowed app</span>
                   <div className="inline-input">
-                    <input className="field__input" type="text" placeholder="Search package or app name" />
-                    <button className="button">Add</button>
+                    <input
+                      className="field__input"
+                      type="text"
+                      placeholder="Search package or app name"
+                      value={allowedAppInput}
+                      onChange={(event) => setAllowedAppInput(event.target.value)}
+                      disabled={!isEditingApps}
+                    />
+                    <button className="button" type="button" onClick={addAllowedApp} disabled={!isEditingApps}>
+                      Add
+                    </button>
                   </div>
-                  <span className="field__help">Changes sync through the cloud relay.</span>
+                  <span className="field__help">
+                    {isEditingApps ? 'Changes sync through the cloud relay.' : 'Tap edit to update allowed apps.'}
+                  </span>
                 </label>
               </div>
             </div>
@@ -151,27 +379,19 @@ function App() {
               <button className="button button--ghost">View all</button>
             </div>
             <div className="panel__body timeline__body">
-              <div className="timeline-item">
-                <div>
-                  <p className="timeline-title">Lock scheduled</p>
-                  <p className="muted">{selectedDevice?.name ?? "Amina's Pixel 7"} · Locks at 9:00 PM</p>
+              {timelineError ? <p className="muted">{timelineError}</p> : null}
+              {timelineLoading ? <p className="muted">Loading timeline...</p> : null}
+              {timelineItems.map((item) => (
+                <div key={item.id} className="timeline-item">
+                  <div>
+                    <p className="timeline-title">{item.title}</p>
+                    <p className="muted">{item.detail}</p>
+                  </div>
+                  <span className={`status-pill ${item.status === 'Delivered' ? 'status-pill--online' : ''}`}>
+                    {item.status}
+                  </span>
                 </div>
-                <span className="status-pill">Queued</span>
-              </div>
-              <div className="timeline-item">
-                <div>
-                  <p className="timeline-title">Allowed apps updated</p>
-                  <p className="muted">Khan Academy added</p>
-                </div>
-                <span className="status-pill status-pill--online">Delivered</span>
-              </div>
-              <div className="timeline-item">
-                <div>
-                  <p className="timeline-title">Unlock command</p>
-                  <p className="muted">Jordan's Galaxy A54 · 6:28 AM</p>
-                </div>
-                <span className="status-pill">Confirmed</span>
-              </div>
+              ))}
             </div>
           </section>
         </section>
@@ -193,17 +413,26 @@ function App() {
           </header>
 
           <section className="device-grid">
+            {devicesLoading ? <p className="muted">Loading devices...</p> : null}
+            {devicesError ? (
+              <div className="inline-alert">
+                <p className="muted">{devicesError}</p>
+                <button className="button button--ghost" onClick={loadDevices}>
+                  Retry
+                </button>
+              </div>
+            ) : null}
             {devices.map((device) => (
               <article
                 key={device.id}
                 className="card device-card device-card--action"
                 role="button"
                 tabIndex={0}
-                onClick={() => setSelectedDevice(device)}
+                onClick={() => handleSelectDevice(device)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault()
-                    setSelectedDevice(device)
+                    handleSelectDevice(device)
                   }
                 }}
               >

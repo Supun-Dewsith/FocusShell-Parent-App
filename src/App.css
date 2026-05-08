@@ -187,10 +187,27 @@
   margin-bottom: 16px;
 }
 
+.button-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .panel__body {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.inline-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(242, 193, 78, 0.18);
+  border: 1px solid rgba(242, 193, 78, 0.4);
 }
 
 .device-state {
@@ -308,6 +325,28 @@
   color: var(--accent);
   font-size: 12px;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip--editable {
+  padding-right: 6px;
+}
+
+.chip__remove {
+  border: none;
+  background: rgba(31, 122, 111, 0.18);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.chip__remove:hover {
+  background: rgba(31, 122, 111, 0.3);
 }
 
 .inline-input {
