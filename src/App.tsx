@@ -31,6 +31,8 @@ function App() {
   const [devices, setDevices] = useState<Device[]>([])
   const [devicesLoading, setDevicesLoading] = useState(true)
   const [devicesError, setDevicesError] = useState<string | null>(null)
+  const [lastSync, setLastSync] = useState<Date | null>(null)
+  const [connectedCount, setConnectedCount] = useState<number>(0)
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
   const [deviceDetailError, setDeviceDetailError] = useState<string | null>(null)
   const [allowedApps, setAllowedApps] = useState<AllowedApp[]>([])
@@ -46,6 +48,15 @@ function App() {
   const [commandStatus, setCommandStatus] = useState<string | null>(null)
   const isDetail = Boolean(selectedDevice)
 
+  const formatRelative = (d: Date) => {
+    const diff = Math.floor((Date.now() - d.getTime()) / 1000)
+    if (diff < 10) return 'Just now'
+    if (diff < 60) return `${diff}s ago`
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+    return d.toLocaleString()
+  }
+
   const fetchJson = async <T,>(url: string, options?: RequestInit): Promise<T> => {
     const response = await fetch(url, options)
     if (!response.ok) {
@@ -60,9 +71,12 @@ function App() {
       setDevicesError(null)
       const data = await fetchJson<Device[]>(`${API_BASE}/devices`)
       setDevices(data)
+      setLastSync(new Date())
+      setConnectedCount(data.length)
     } catch {
       setDevicesError('Unable to reach the backend. Start the API and retry.')
       setDevices([])
+      setConnectedCount(0)
     } finally {
       setDevicesLoading(false)
     }
@@ -407,8 +421,8 @@ function App() {
               </p>
             </div>
             <div className="header__status">
-              <div className="status-pill">Last sync 2 min ago</div>
-              <div className="status-pill">2 devices connected</div>
+              <div className="status-pill">Last sync {lastSync ? formatRelative(lastSync) : '—'}</div>
+              <div className="status-pill">{connectedCount} devices connected</div>
             </div>
           </header>
 
